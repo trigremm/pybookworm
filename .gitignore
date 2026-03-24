@@ -1,2 +1,7 @@
-output
+output/
 .current_url.txt
+.auth_storage.json
+__pycache__/
+*.egg-info/
+dist/
+build/

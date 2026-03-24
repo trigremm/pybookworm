@@ -1,0 +1,65 @@
+[project]
+name = "pybookworm"
+version = "0.1.0"
+description = "Scrape web novels chapter-by-chapter and convert to EPUB"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+
+authors = [
+  { name = "Askhat Molkenov", email = "askhat.molkenov@gmail.com" }
+]
+
+dependencies = [
+    "beautifulsoup4",
+    "ebooklib",
+    "playwright",
+    "requests",
+]
+
+[project.scripts]
+bookworm = "pybookworm.cli:main"
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["pybookworm*"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "C4",     # flake8-comprehensions
+    "C90",    # mccabe complexity
+    "N",      # pep8-naming
+    "PL",     # pylint
+    "RUF",    # ruff-specific rules
+]
+ignore = [
+    "PLR0913",  # too many arguments
+    "PLR2004",  # magic value comparison
+    "PLR0911",  # too many return statements
+    "PLR0912",  # too many branches
+    "C901",     # too complex
+    "RUF002",   # ambiguous unicode character in docstring
+    "RUF003",   # ambiguous unicode character in comment
+]
+
+[tool.ruff.lint.per-file-ignores]
+"pybookworm/cli.py" = ["PLC0415"]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10

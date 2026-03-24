@@ -1,11 +1,10 @@
+install:
+	pip install -e .
 
 format:
-	black .
-	isort . 
+	ruff check --fix .
+	ruff format .
 
 f: format
 
-http_server:
-	python -m http.server 8000
-
-.PHONY: format f http_server
+.PHONY: install format f
