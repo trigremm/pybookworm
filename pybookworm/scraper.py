@@ -1,4 +1,5 @@
 # pybookworm/scraper.py
+import json
 import os
 import time
 from urllib.parse import urljoin
@@ -20,6 +21,7 @@ def get_storage_file() -> str:
 
 
 def get_resume_file(output_dir: str) -> str:
+    """Legacy resume file — kept for backwards compatibility."""
     return os.path.join(output_dir, ".current_url.txt")
 
 
@@ -122,26 +124,79 @@ def get_page_data(url: str, domain: str, engine: str):
     return parse_html(html, domain)
 
 
-def scrape_book(start_url: str, output: str, engine: str) -> None:
+def get_config_file(output_dir: str) -> str:
+    return os.path.join(output_dir, "bookworm_config.json")
+
+
+def save_book_config(output_dir: str, start_url: str, output: str, engine: str,
+                     split_chapters: bool, current_url: str | None = None) -> None:
+    config_path = get_config_file(output_dir)
+    # Load existing config to preserve fields not being updated
+    cfg = {}
+    if os.path.exists(config_path):
+        with open(config_path, encoding="utf-8") as f:
+            cfg = json.load(f)
+    cfg.update({
+        "start_url": start_url,
+        "output": output,
+        "engine": engine,
+        "split_chapters": split_chapters,
+    })
+    if current_url is not None:
+        cfg["current_url"] = current_url
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2, ensure_ascii=False)
+
+
+def load_book_config(config_path: str) -> dict:
+    with open(config_path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def count_existing_chapters(output_dir: str, stem: str) -> int:
+    """Count existing chapter files to determine next chapter number."""
+    import glob
+
+    pattern = os.path.join(output_dir, f"{stem}_*_chapter.txt")
+    return len(glob.glob(pattern))
+
+
+def scrape_book(start_url: str, output: str, engine: str, split_chapters: bool = False) -> None:
     output_dir = os.path.dirname(output) or "."
     os.makedirs(output_dir, exist_ok=True)
+
+    stem = os.path.splitext(os.path.basename(output))[0]
+    chapter_num = count_existing_chapters(output_dir, stem) + 1
 
     current_url = start_url
     domain = extract_domain(current_url)
 
-    resume_file = get_resume_file(output_dir)
-    try:
-        with open(resume_file, encoding="utf-8") as f:
-            tmp_url = f.readline().strip()
-            if tmp_url:
-                print(f"Resume file found, continuing from {tmp_url}")
-                current_url = tmp_url
-    except FileNotFoundError:
-        pass
+    # Check config for resume URL
+    config_path = get_config_file(output_dir)
+    if os.path.exists(config_path):
+        cfg = load_book_config(config_path)
+        resume_url = cfg.get("current_url", "")
+        if resume_url:
+            print(f"Resuming from {resume_url}")
+            current_url = resume_url
+    else:
+        # Also check legacy .current_url.txt
+        resume_file = get_resume_file(output_dir)
+        try:
+            with open(resume_file, encoding="utf-8") as f:
+                tmp_url = f.readline().strip()
+                if tmp_url:
+                    print(f"Legacy resume file found, continuing from {tmp_url}")
+                    current_url = tmp_url
+        except FileNotFoundError:
+            pass
+
+    # Save initial config
+    save_book_config(output_dir, start_url, output, engine, split_chapters, current_url)
 
     while current_url:
         time.sleep(3)
-        print(f"Processing {current_url}...")
+        print(f"[{chapter_num}] Processing {current_url}...")
 
         try:
             if engine == "auto":
@@ -154,15 +209,26 @@ def scrape_book(start_url: str, output: str, engine: str) -> None:
             if not title or not content:
                 raise RuntimeError("Failed to extract chapter content")
 
+            # Always append to combined file
             with open(output, "a", encoding="utf-8") as f:
                 f.write("\n" + "-" * 20 + "\n")
                 f.write(f"{title}\n\n")
                 f.write(content)
 
-            with open(resume_file, "w", encoding="utf-8") as f:
-                f.write(next_url or "")
+            # Save individual chapter file for TTS
+            if split_chapters:
+                chapter_file = os.path.join(output_dir, f"{stem}_{chapter_num:05d}_chapter.txt")
+                with open(chapter_file, "w", encoding="utf-8") as f:
+                    f.write(f"{title}\n")
+                    f.write(content)
+                print(f"  Saved {os.path.basename(chapter_file)}")
 
+            chapter_num += 1
             current_url = next_url
+
+            # Update config with current progress
+            save_book_config(output_dir, start_url, output, engine, split_chapters, next_url or "")
+
         except Exception as exc:
             print(f"Error while processing {current_url}: {exc}")
             break
