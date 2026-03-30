@@ -1,4 +1,5 @@
 # pybookworm/scraper.py
+import glob
 import json
 import os
 import time
@@ -128,20 +129,23 @@ def get_config_file(output_dir: str) -> str:
     return os.path.join(output_dir, "bookworm_config.json")
 
 
-def save_book_config(output_dir: str, start_url: str, output: str, engine: str,
-                     split_chapters: bool, current_url: str | None = None) -> None:
+def save_book_config(
+    output_dir: str, start_url: str, output: str, engine: str, split_chapters: bool, current_url: str | None = None
+) -> None:
     config_path = get_config_file(output_dir)
     # Load existing config to preserve fields not being updated
     cfg = {}
     if os.path.exists(config_path):
         with open(config_path, encoding="utf-8") as f:
             cfg = json.load(f)
-    cfg.update({
-        "start_url": start_url,
-        "output": output,
-        "engine": engine,
-        "split_chapters": split_chapters,
-    })
+    cfg.update(
+        {
+            "start_url": start_url,
+            "output": output,
+            "engine": engine,
+            "split_chapters": split_chapters,
+        }
+    )
     if current_url is not None:
         cfg["current_url"] = current_url
     with open(config_path, "w", encoding="utf-8") as f:
@@ -155,10 +159,30 @@ def load_book_config(config_path: str) -> dict:
 
 def count_existing_chapters(output_dir: str, stem: str) -> int:
     """Count existing chapter files to determine next chapter number."""
-    import glob
-
     pattern = os.path.join(output_dir, f"{stem}_*_chapter.txt")
     return len(glob.glob(pattern))
+
+
+def resolve_resume_url(start_url: str, output_dir: str) -> str:
+    """Check config or legacy file for a resume URL, else return start_url."""
+    config_path = get_config_file(output_dir)
+    if os.path.exists(config_path):
+        cfg = load_book_config(config_path)
+        resume_url = cfg.get("current_url", "")
+        if resume_url:
+            print(f"Resuming from {resume_url}")
+            return resume_url
+    else:
+        resume_file = get_resume_file(output_dir)
+        try:
+            with open(resume_file, encoding="utf-8") as f:
+                tmp_url = f.readline().strip()
+                if tmp_url:
+                    print(f"Legacy resume file found, continuing from {tmp_url}")
+                    return tmp_url
+        except FileNotFoundError:
+            pass
+    return start_url
 
 
 def scrape_book(start_url: str, output: str, engine: str, split_chapters: bool = False) -> None:
@@ -168,30 +192,9 @@ def scrape_book(start_url: str, output: str, engine: str, split_chapters: bool =
     stem = os.path.splitext(os.path.basename(output))[0]
     chapter_num = count_existing_chapters(output_dir, stem) + 1
 
-    current_url = start_url
+    current_url = resolve_resume_url(start_url, output_dir)
     domain = extract_domain(current_url)
 
-    # Check config for resume URL
-    config_path = get_config_file(output_dir)
-    if os.path.exists(config_path):
-        cfg = load_book_config(config_path)
-        resume_url = cfg.get("current_url", "")
-        if resume_url:
-            print(f"Resuming from {resume_url}")
-            current_url = resume_url
-    else:
-        # Also check legacy .current_url.txt
-        resume_file = get_resume_file(output_dir)
-        try:
-            with open(resume_file, encoding="utf-8") as f:
-                tmp_url = f.readline().strip()
-                if tmp_url:
-                    print(f"Legacy resume file found, continuing from {tmp_url}")
-                    current_url = tmp_url
-        except FileNotFoundError:
-            pass
-
-    # Save initial config
     save_book_config(output_dir, start_url, output, engine, split_chapters, current_url)
 
     while current_url:

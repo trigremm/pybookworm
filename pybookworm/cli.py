@@ -32,6 +32,10 @@ def cli() -> int:
     sp_resume = subparsers.add_parser("resume", help="Resume scraping from saved config")
     sp_resume.add_argument("config", help="Path to bookworm_config.json")
 
+    # clean
+    sp_clean = subparsers.add_parser("clean", help="Remove site metadata headers from chapter files")
+    sp_clean.add_argument("directory", help="Directory containing *_chapter.txt files")
+
     # convert
     sp_convert = subparsers.add_parser("convert", help="Convert scraped TXT to EPUB")
     sp_convert.add_argument("-i", "--input", required=True, help="Input TXT file")
@@ -52,7 +56,8 @@ def cli() -> int:
         scrape_book(args.url, args.output, args.engine, args.split_chapters)
 
     elif args.command == "resume":
-        from .scraper import load_book_config, scrape_book
+        from .scraper import load_book_config
+        from .scraper import scrape_book
 
         cfg = load_book_config(args.config)
         print(f"Resuming with config: {args.config}")
@@ -62,6 +67,12 @@ def cli() -> int:
         from .scraper import do_login
 
         do_login(args.url)
+
+    elif args.command == "clean":
+        from .cleaner import clean_chapters
+
+        cleaned, skipped = clean_chapters(args.directory)
+        print(f"Done: {cleaned} cleaned, {skipped} skipped")
 
     elif args.command == "convert":
         from .converter import txt_to_epub

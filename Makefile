@@ -13,6 +13,9 @@ run: ## Scrape a book (e.g. make run URL=https://... OUTPUT=output/book/book.txt
 run-resume: ## Resume scraping from config (e.g. make run-resume CONFIG=output/book/bookworm_config.json)
 	bookworm resume "$(CONFIG)"
 
+clean: ## Remove site metadata headers from chapter files (e.g. make clean OUTPUT=output/book)
+	bookworm clean "$(OUTPUT)"
+
 format:
 	ruff check --fix .
 	ruff format .
