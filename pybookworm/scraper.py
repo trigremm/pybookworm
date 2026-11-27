@@ -130,7 +130,13 @@ def get_config_file(output_dir: str) -> str:
 
 
 def save_book_config(
-    output_dir: str, start_url: str, output: str, engine: str, split_chapters: bool, current_url: str | None = None
+    output_dir: str,
+    *,
+    start_url: str,
+    output: str,
+    engine: str,
+    split_chapters: bool,
+    current_url: str | None = None,
 ) -> None:
     config_path = get_config_file(output_dir)
     # Load existing config to preserve fields not being updated
@@ -195,7 +201,14 @@ def scrape_book(start_url: str, output: str, engine: str, split_chapters: bool =
     current_url = resolve_resume_url(start_url, output_dir)
     domain = extract_domain(current_url)
 
-    save_book_config(output_dir, start_url, output, engine, split_chapters, current_url)
+    save_book_config(
+        output_dir,
+        start_url=start_url,
+        output=output,
+        engine=engine,
+        split_chapters=split_chapters,
+        current_url=current_url,
+    )
 
     while current_url:
         time.sleep(3)
@@ -230,7 +243,14 @@ def scrape_book(start_url: str, output: str, engine: str, split_chapters: bool =
             current_url = next_url
 
             # Update config with current progress
-            save_book_config(output_dir, start_url, output, engine, split_chapters, next_url or "")
+            save_book_config(
+                output_dir,
+                start_url=start_url,
+                output=output,
+                engine=engine,
+                split_chapters=split_chapters,
+                current_url=next_url or "",
+            )
 
         except Exception as exc:
             print(f"Error while processing {current_url}: {exc}")
